@@ -5,38 +5,85 @@
 
 // initialize the library with the numbers of the interface pins
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+const int tgtTemperaturePin = 0;
+int tgtTemperatureValue = 0;
 
-
-
+const int pinLED = 7;
 
 //Set digital pin number for the termometer
-int DS18S20_Pin = 13; 
+const int DS18S20_Pin = 13; 
 
 //Temperature chip i/o
 OneWire ds(DS18S20_Pin);  // on digital pin 2
 
+const int lowTempMap = 40;
+const int highTempMap = 100;
 
+int shouldLightLED = 0;
+int delayTimeLED = 0;
+const float highTempOffset = -20;
 
 
 void setup(void) {
   Serial.begin(9600);
   lcd.begin(16,2);
+  pinMode(pinLED,OUTPUT);
   lcd.print("starting");  
 }
 
 void loop(void) {
-  lcd.clear();
+  tgtTemperatureValue = analogRead(tgtTemperaturePin);
   float temperature = getTemp();
-  Serial.println(temperature);
-  lcd.print("Temperature is  ");
-  lcd.setCursor(0,1);
-  lcd.print(temperature);
-  lcd.print ("  C");
-  delay(300); //just here to slow down the output so it is easier to read
   
+  if (temperature > tgtTemperatureValue + highTempOffset ){
+    shouldLightLED = 1;
+    delayTimeLED = 0;
+  }
+  else if (temperature > tgtTemperatureValue){
+    shouldLightLED = 1;
+    delayTimeLED = (int) (temperature - tgtTemperatureValue)/tgtTemperatureValue*100;
+  }
+  else{
+    shouldLightLED = 0;
+    delayTimeLED = 0;
+  }
+  if (shouldLightLED > 0 ){
+    blinkLED(delayTimeLED);
+  }
+  else {
+    digitalWrite(pinLED,LOW);
+  }
+  printLCDText(temperature,tgtTemperatureValue);
+  Serial.println("shouldLightLED");
+  Serial.println(shouldLightLED);
+  Serial.println("delay");
+  Serial.println(delayTimeLED);
+  delay(500);
 }
 
 
+
+
+void blinkLED(int delaytime){
+  digitalWrite(pinLED,HIGH);
+  delay(delaytime);
+  //digitalWrite(pinLED,LOW);
+
+}
+void printLCDText ( float temperature, float targetTemperature){
+
+  lcd.clear();
+  Serial.println(temperature);
+  lcd.print("T curr:");
+  lcd.print(temperature);
+  lcd.print ("C ");
+  lcd.setCursor(0,1);
+  lcd.print("Tgt T: ");
+  lcd.print(map(targetTemperature,0,1024,lowTempMap,highTempMap));
+  lcd.print(" C");
+ 
+  
+}
 float getTemp(){
   //returns the temperature from one DS18S20 in DEG Celsius
 
